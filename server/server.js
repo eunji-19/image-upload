@@ -1,38 +1,31 @@
+require("dotenv").config();
 const express = require("express");
-const multer = require("multer");
-const { v4: uuid } = require("uuid");
-const mime = require("mime-types");
-const e = require("express");
+const mongoose = require("mongoose");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "./uploads"),
-  //   filename: (req, file, cb) => cb(null, file.originalname),
-  filename: (req, file, cb) =>
-    cb(null, `${uuid()}.${mime.extension(file.mimetype)}`),
-});
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.includes("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Invalid File Type"), false);
-    }
-  },
-  limits: {
-    fileSize: 1024 * 1024 * 5, // 5MB
-  },
-});
+const { imageRouter } = require("./routes/imageRouter");
+const userRouter = require("./routes/userRouter");
+
+const { authentication } = require("./middlewares/authentication");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
-app.use(express.static("uploads"));
-// app.use("/uploads", express.static("uploads"))
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("Mongodb Connect");
+    // app.use(express.static("uploads"));
+    app.use("/uploads", express.static("uploads"));
+    app.use(express.json());
+    app.use(authentication);
+    app.use("/images", imageRouter);
+    app.use("/users", userRouter);
 
-app.post("/upload", upload.single("image"), (req, res) => {
-  console.log(req.file);
-  res.json(req.file);
-});
-
-app.listen(PORT, () => console.log(`Express server is listening on ${PORT}`));
+    app.listen(PORT, () =>
+      console.log(`Express server is listening on ${PORT}`)
+    );
+  })
+  .catch((err) => console.log(err));
